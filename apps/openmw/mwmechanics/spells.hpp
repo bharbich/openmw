@@ -90,10 +90,15 @@ namespace MWMechanics
 
         const ESM::RefId& getSelectedSpell() const;
         ///< May return an empty string.
+        
+        void getAllIds(std::vector<std::string_view>& dst) const;
+        /// Copy all spell ids from this container to another list
 
         bool hasCommonDisease() const;
 
         bool hasBlightDisease() const;
+
+        int count() const { return (int)mSpells.size(); }
 
         void readState(const ESM::SpellState& state, CreatureStats* creatureStats);
         void writeState(ESM::SpellState& state) const;

@@ -100,6 +100,16 @@ namespace MWLua
     {
         Obj mObj;
     };
+    template <typename Obj>
+    struct Spells
+    {
+        Obj mObj;
+    };
+    template <typename Obj>
+    struct ActiveSpells
+    {
+        Obj mObj;
+    };
 
 }
 

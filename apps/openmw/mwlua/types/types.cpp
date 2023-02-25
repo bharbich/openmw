@@ -32,6 +32,8 @@ namespace MWLua
         constexpr std::string_view Probe = "Probe";
         constexpr std::string_view Repair = "Repair";
         constexpr std::string_view Marker = "Marker";
+        constexpr std::string_view Spell = "Spell";
+        constexpr std::string_view MagicEffect = "MagicEffect";
     }
 
     namespace
@@ -57,6 +59,8 @@ namespace MWLua
             { ESM::REC_LOCK, ObjectTypeName::Lockpick },
             { ESM::REC_PROB, ObjectTypeName::Probe },
             { ESM::REC_REPA, ObjectTypeName::Repair },
+            { ESM::REC_SPEL, ObjectTypeName::Spell },
+            { ESM::REC_SPEL, ObjectTypeName::MagicEffect },
         };
 
     }
@@ -170,6 +174,8 @@ namespace MWLua
         addProbeBindings(addType(ObjectTypeName::Probe, { ESM::REC_PROB }, ObjectTypeName::Item), context);
         addApparatusBindings(addType(ObjectTypeName::Apparatus, { ESM::REC_APPA }, ObjectTypeName::Item), context);
         addRepairBindings(addType(ObjectTypeName::Repair, { ESM::REC_REPA }, ObjectTypeName::Item), context);
+        addSpellBindings(addType(ObjectTypeName::Spell, { ESM::REC_SPEL }), context);
+        addMagicEffectBindings(addType(ObjectTypeName::MagicEffect, { ESM::REC_MGEF }), context);
 
         addActivatorBindings(addType(ObjectTypeName::Activator, { ESM::REC_ACTI }), context);
         addContainerBindings(addType(ObjectTypeName::Container, { ESM::REC_CONT }), context);

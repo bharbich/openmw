@@ -9,6 +9,8 @@
 #include "../mwworld/player.hpp"
 #include "../mwworld/scene.hpp"
 
+#include "../mwmechanics/activespells.hpp"
+#include "../mwmechanics/npcstats.hpp"
 #include "../mwmechanics/creaturestats.hpp"
 
 #include "eventqueue.hpp"
@@ -39,6 +41,22 @@ namespace sol
     };
     template <>
     struct is_automagical<MWLua::Inventory<MWLua::GObject>> : std::false_type
+    {
+    };
+    template <>
+    struct is_automagical<MWLua::Spells<MWLua::LObject>> : std::false_type
+    {
+    };
+    template <>
+    struct is_automagical<MWLua::Spells<MWLua::GObject>> : std::false_type
+    {
+    };
+    template <>
+    struct is_automagical<MWLua::ActiveSpells<MWLua::LObject>> : std::false_type
+    {
+    };
+    template <>
+    struct is_automagical<MWLua::ActiveSpells<MWLua::GObject>> : std::false_type
     {
     };
 }
@@ -463,6 +481,114 @@ namespace MWLua
             };
         }
 
+        // lua bindings for active spells as accessible via 'types.Actor.activeSpells'
+        template <class ObjectT>
+        void addActorActiveSpellBindings(sol::usertype<ObjectT>& objectT, const std::string& prefix, const Context& context)
+        {
+            using ActiveSpellsT = ActiveSpells<ObjectT>;
+            sol::usertype<ActiveSpellsT> activeSpellsT = context.mLua->sol().new_usertype<ActiveSpellsT>(prefix + "ActiveSpells");
+
+            activeSpellsT[sol::meta_function::to_string]
+                = [](const ActiveSpellsT& spls) { return "ActiveSpells[" + spls.mObj.toString() + "]"; };
+
+            activeSpellsT["count"] = sol::readonly_property( [](const ActiveSpellsT& spells)  {
+                const MWWorld::Ptr& ptr = spells.mObj.ptr();
+                return ptr.getClass().getCreatureStats(ptr).getActiveSpells().count();
+            });
+
+            activeSpellsT["clear"] = [](const ActiveSpellsT& spells)  {
+                const MWWorld::Ptr& ptr = spells.mObj.ptr();
+                return ptr.getClass().getCreatureStats(ptr).getActiveSpells().clear(ptr);
+            };
+            
+            activeSpellsT["remove"] = [](const ActiveSpellsT& spells, const std::string_view recordId)  {
+                const MWWorld::Ptr& ptr = spells.mObj.ptr();
+                return ptr.getClass().getCreatureStats(ptr).getActiveSpells().removeEffects(ptr, ESM::RefId::stringRefId(recordId));
+            };
+
+            activeSpellsT["getAll"] = [context](const ActiveSpellsT& spells) -> sol::table {
+                const MWWorld::Ptr& ptr = spells.mObj.ptr();
+                auto idList = std::vector<std::string_view>();
+                const MWMechanics::ActiveSpells auras = ptr.getClass().getCreatureStats(ptr).getActiveSpells();
+                sol::table resultTab = context.mLua->sol().create_table();
+
+                // for each active spell on this actor...
+                int auraIndex = 1;
+                for(auto& aura : auras) {
+                    sol::table spellTab = context.mLua->sol().create_table();
+                    spellTab["id"] = aura.getId().getRefIdString();
+                    spellTab["name"] = aura.getDisplayName();
+                    spellTab["type"] = aura.getType();
+                    spellTab["casterActorId"] = aura.getCasterActorId();
+                    spellTab["worsenings"] = aura.getWorsenings();
+                    sol::table effectListTab = context.mLua->sol().create_table();
+                    const auto effects = aura.getEffects();
+
+                    // for each effect in this active spell...
+                    for(int effectIndex = 0; effectIndex < effects.size(); ++effectIndex) {
+                        sol::table effectTab = context.mLua->sol().create_table();
+                        const MWMechanics::ActiveSpells::ActiveEffect effect = effects[effectIndex];
+                        effectTab["id"] = effect.mEffectId;
+                        effectTab["magnitude"] = effect.mMagnitude;
+                        effectTab["minMagnitude"] = effect.mMinMagnitude;
+                        effectTab["maxMagnitude"] = effect.mMaxMagnitude;
+                        effectTab["arg"] = effect.mArg;
+                        effectTab["duration"] = effect.mDuration;
+                        effectTab["timeLeft"] = effect.mTimeLeft;
+                        effectTab["index"] = effect.mEffectIndex;
+                        effectTab["flags"] = effect.mFlags;
+                        effectListTab[effectIndex + 1] = effectTab;
+                    }
+
+                    // write active spell info into return table
+                    spellTab["effects"] = effectListTab;
+                    resultTab[auraIndex++] = spellTab;
+                }
+                return resultTab;
+            };
+        }
+        
+        // lua bindings for spells as accessible via 'types.Actor.spells'
+        template <class ObjectT>
+        void addActorSpellBindings(sol::usertype<ObjectT>& objectT, const std::string& prefix, const Context& context)
+        {
+            using SpellsT = Spells<ObjectT>;
+            sol::usertype<SpellsT> spellsT = context.mLua->sol().new_usertype<SpellsT>(prefix + "Spells");
+
+            spellsT[sol::meta_function::to_string]
+                = [](const SpellsT& spls) { return "Spells[" + spls.mObj.toString() + "]"; };
+
+            spellsT["count"] = sol::readonly_property( [](const SpellsT& spells) {
+                const MWWorld::Ptr& ptr = spells.mObj.ptr();
+                return ptr.getClass().getCreatureStats(ptr).getSpells().count();
+            });
+            
+            spellsT["getAll"] = [](const SpellsT& spells) {
+                const MWWorld::Ptr& ptr = spells.mObj.ptr();
+                std::vector<std::string_view> idList = std::vector<std::string_view>();
+                ptr.getClass().getCreatureStats(ptr).getSpells().getAllIds(idList);
+                return idList;
+            };
+
+            spellsT["add"] = [](const SpellsT& spells, std::string_view recordId) {
+                const MWWorld::Ptr& ptr = spells.mObj.ptr();
+                auto id = ESM::RefId::stringRefId(recordId);
+                return ptr.getClass().getCreatureStats(ptr).getSpells().add(id);
+            };
+
+            spellsT["remove"] = [](const SpellsT& spells, std::string_view recordId) {
+                const MWWorld::Ptr& ptr = spells.mObj.ptr();
+                auto id = ESM::RefId::stringRefId(recordId);
+                return ptr.getClass().getCreatureStats(ptr).getSpells().remove(id);
+            };
+            
+            spellsT["has"] = [](const SpellsT& spells, std::string_view recordId) {
+                const MWWorld::Ptr& ptr = spells.mObj.ptr();
+                auto id = ESM::RefId::stringRefId(recordId);
+                return ptr.getClass().getCreatureStats(ptr).getSpells().hasSpell(id);
+            };
+        }
+
         template <class ObjectT>
         void initObjectBindings(const std::string& prefix, const Context& context)
         {
@@ -470,14 +596,17 @@ namespace MWLua
                 = context.mLua->sol().new_usertype<ObjectT>(prefix + "Object", sol::base_classes, sol::bases<Object>());
             addBasicBindings<ObjectT>(objectT, context);
             addInventoryBindings<ObjectT>(objectT, prefix, context);
-
             registerObjectList<ObjectT>(prefix, context);
         }
     } // namespace
 
     void initObjectBindingsForLocalScripts(const Context& context)
     {
-        initObjectBindings<LObject>("L", context);
+        const std::string prefix = "L";
+        initObjectBindings<LObject>(prefix, context);
+        auto objectT = sol::usertype<LObject>();
+        addActorSpellBindings<LObject>(objectT, prefix, context);
+        addActorActiveSpellBindings<LObject>(objectT, prefix, context);
     }
 
     void initObjectBindingsForGlobalScripts(const Context& context)

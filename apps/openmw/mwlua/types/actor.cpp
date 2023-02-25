@@ -220,6 +220,10 @@ namespace MWLua
 
         actor["inventory"] = sol::overload([](const LObject& o) { return Inventory<LObject>{ o }; },
             [](const GObject& o) { return Inventory<GObject>{ o }; });
+
+        actor["spells"] = [](const LObject& o) { return Spells<LObject>{ o }; };
+        actor["activeSpells"] = [](const LObject& o) { return ActiveSpells<LObject>{ o }; };
+
         auto getAllEquipment = [context](const Object& o) {
             const MWWorld::Ptr& ptr = o.ptr();
             sol::table equipment(context.mLua->sol(), sol::create);

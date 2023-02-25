@@ -125,6 +125,9 @@ namespace MWMechanics
 
         /// Bypasses resistances
         void addSpell(const ESM::Spell* spell, const MWWorld::Ptr& actor);
+        
+        void getAllIds(std::vector<std::string_view>& dst) const;
+        void getAllIds(std::vector<ESM::RefId>& dst) const;
 
         /// Removes the active effects from this spell/potion/.. with \a id
         void removeEffects(const MWWorld::Ptr& ptr, const ESM::RefId& id);
@@ -147,6 +150,8 @@ namespace MWMechanics
         void skipWorsenings(double hours);
 
         void unloadActor(const MWWorld::Ptr& ptr);
+
+        int count() const { return (int)mSpells.size(); }
     };
 }
 

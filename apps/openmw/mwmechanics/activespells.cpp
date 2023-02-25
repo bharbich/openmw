@@ -432,6 +432,22 @@ namespace MWMechanics
         mQueue.emplace_back(ActiveSpellParams{ spell, actor, true });
     }
 
+    void ActiveSpells::getAllIds(std::vector<std::string_view>& dst) const
+    {
+        for(const auto& spell : mSpells)
+        {
+            dst.push_back(spell.getId().getRefIdString());
+        }
+    }
+    
+    void ActiveSpells::getAllIds(std::vector<ESM::RefId>& dst) const
+    {
+        for(const auto& spell : mSpells)
+        {
+            dst.push_back(spell.getId());
+        }
+    }
+
     void ActiveSpells::purge(ParamsPredicate predicate, const MWWorld::Ptr& ptr)
     {
         assert(&ptr.getClass().getCreatureStats(ptr).getActiveSpells() == this);

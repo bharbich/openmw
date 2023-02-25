@@ -122,6 +122,17 @@ namespace MWMechanics
         return it != std::end(mSpells);
     }
 
+    void Spells::getAllIds(std::vector<std::string_view>& dst) const
+    {
+        for(const ESM::Spell* spell : mSpells)
+        {
+            if(spell)
+            {
+                dst.push_back(spell->mId.getRefIdString());
+            }
+        }
+    }
+
     bool Spells::hasCommonDisease() const
     {
         return hasSpellType(ESM::Spell::ST_Disease);

@@ -45,6 +45,8 @@ namespace MWLua
     void addClothingBindings(sol::table clothing, const Context& context);
     void addStaticBindings(sol::table stat, const Context& context);
     void addLightBindings(sol::table light, const Context& context);
+    void addSpellBindings(sol::table spell, const Context& context);
+    void addMagicEffectBindings(sol::table effect, const Context& context);
 }
 
 #endif // MWLUA_TYPES_H
