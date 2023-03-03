@@ -5,6 +5,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -36,13 +37,16 @@ namespace Shader
         typedef std::map<std::string, std::string> DefineMap;
 
         /// Create or retrieve a shader instance.
-        /// @param shaderTemplate The filename of the shader template.
+        /// @param templateName The path of the shader template.
         /// @param defines Define values that can be retrieved by the shader template.
         /// @param shaderType The type of shader (usually vertex or fragment shader).
         /// @note May return nullptr on failure.
         /// @note Thread safe.
-        osg::ref_ptr<osg::Shader> getShader(
-            const std::string& templateName, const DefineMap& defines, osg::Shader::Type shaderType);
+        osg::ref_ptr<osg::Shader> getShader(std::string templateName, const DefineMap& defines = {},
+            std::optional<osg::Shader::Type> type = std::nullopt);
+
+        osg::ref_ptr<osg::Program> getProgram(const std::string& templateName, const DefineMap& defines = {},
+            const osg::Program* programTemplate = nullptr);
 
         osg::ref_ptr<osg::Program> getProgram(osg::ref_ptr<osg::Shader> vertexShader,
             osg::ref_ptr<osg::Shader> fragmentShader, const osg::Program* programTemplate = nullptr);
@@ -76,9 +80,11 @@ namespace Shader
         {
             OpaqueDepthTexture,
             SkyTexture,
+            ShadowMaps,
+            SLOT_COUNT
         };
 
-        int reserveGlobalTextureUnits(Slot slot);
+        int reserveGlobalTextureUnits(Slot slot, int count = 1);
 
         void update(osgViewer::Viewer& viewer);
         void setHotReloadEnabled(bool value);
@@ -116,7 +122,12 @@ namespace Shader
         int mMaxTextureUnits = 0;
         int mReservedTextureUnits = 0;
         std::unique_ptr<HotReloadManager> mHotReloadManager;
-        std::array<int, 2> mReservedTextureUnitsBySlot = { -1, -1 };
+        struct ReservedTextureUnits
+        {
+            int index = -1;
+            int count = 0;
+        };
+        std::array<ReservedTextureUnits, static_cast<int>(Slot::SLOT_COUNT)> mReservedTextureUnitsBySlot = {};
     };
 
     bool parseForeachDirective(std::string& source, const std::string& templateName, size_t foundPos);

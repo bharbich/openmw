@@ -1,6 +1,7 @@
 0.49.0
 ------
 
+    Bug #2623: Snowy Granius doesn't prioritize conjuration spells
     Bug #3842: Body part skeletons override the main skeleton
     Bug #4127: Weapon animation looks choppy
     Bug #4204: Dead slaughterfish doesn't float to water surface after loading saved game
@@ -43,6 +44,7 @@
     Bug #7122: Teleportation to underwater should cancel active water walking effect
     Bug #7163: Myar Aranath: Wheat breaks the GUI
     Bug #7172: Current music playlist continues playing indefinitely if next playlist is empty
+    Bug #7229: Error marker loading failure is not handled
     Bug #7243: Get Skyrim.esm loading
     Feature #5492: Let rain and snow collide with statics
     Feature #6447: Add LOD support to Object Paging
@@ -56,9 +58,11 @@
     Feature #7058: Implement TestModels (T3D) console command
     Feature #7087: Block resolution change in the Windowed Fullscreen mode
     Feature #7125: Remembering console commands between sessions
+    Feature #7129: Add support for non-adaptive VSync
     Feature #7130: Ability to set MyGUI logging verbosity
     Feature #7148: Optimize string literal lookup in mwscript
     Feature #7194: Ori to show texture paths
+    Feature #7214: Searching in the in-game console
     Task #7117: Replace boost::scoped_array with std::vector
     Task #7151: Do not use std::strerror to get errno error message
 

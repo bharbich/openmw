@@ -16,6 +16,41 @@
 #include <sstream>
 #include <unordered_map>
 
+namespace
+{
+    osg::Shader::Type getShaderType(const std::string& templateName)
+    {
+        auto ext = std::filesystem::path(templateName).extension();
+
+        if (ext == ".vert")
+            return osg::Shader::VERTEX;
+        if (ext == ".frag")
+            return osg::Shader::FRAGMENT;
+        if (ext == ".geom")
+            return osg::Shader::GEOMETRY;
+        if (ext == ".comp")
+            return osg::Shader::COMPUTE;
+        if (ext == ".tese")
+            return osg::Shader::TESSEVALUATION;
+        if (ext == ".tesc")
+            return osg::Shader::TESSCONTROL;
+
+        throw std::runtime_error("unrecognized shader template name: " + templateName);
+    }
+
+    std::string getRootPrefix(const std::string& path)
+    {
+        if (path.starts_with("lib"))
+            return "lib";
+        else if (path.starts_with("compatibility"))
+            return "compatibility";
+        else if (path.starts_with("core"))
+            return "core";
+        else
+            return "";
+    }
+}
+
 namespace Shader
 {
 
@@ -106,6 +141,14 @@ namespace Shader
                 return false;
             }
             std::string includeFilename = source.substr(start + 1, end - (start + 1));
+
+            // Check if this include is a relative path
+            // TODO: We shouldn't be relying on soft-coded root prefixes, just check if the path exists and fallback to
+            // searching root if it doesn't
+            if (getRootPrefix(includeFilename).empty())
+                includeFilename
+                    = Files::pathToUnicodeString(std::filesystem::path(fileName).parent_path() / includeFilename);
+
             std::filesystem::path includePath = shaderPath / includeFilename;
 
             // Determine the line number that will be used for the #line directive following the included source
@@ -471,9 +514,14 @@ namespace Shader
     };
 
     osg::ref_ptr<osg::Shader> ShaderManager::getShader(
-        const std::string& templateName, const ShaderManager::DefineMap& defines, osg::Shader::Type shaderType)
+        std::string templateName, const ShaderManager::DefineMap& defines, std::optional<osg::Shader::Type> type)
     {
         std::unique_lock<std::mutex> lock(mMutex);
+
+        // TODO: Implement mechanism to switch to core or compatibility profile shaders.
+        // This logic is temporary until core support is supported.
+        if (getRootPrefix(templateName).empty())
+            templateName = "compatibility/" + templateName;
 
         // read the template if we haven't already
         TemplateMap::iterator templateIt = mShaderTemplates.find(templateName);
@@ -514,7 +562,7 @@ namespace Shader
                 return nullptr;
             }
 
-            osg::ref_ptr<osg::Shader> shader(new osg::Shader(shaderType));
+            osg::ref_ptr<osg::Shader> shader(new osg::Shader(type ? *type : getShaderType(templateName)));
             shader->setShaderSource(shaderSource);
             // Assign a unique prefix to allow the SharedStateManager to compare shaders efficiently.
             // Append shader source filename for debugging.
@@ -530,6 +578,18 @@ namespace Shader
             shaderIt = mShaders.insert(std::make_pair(std::make_pair(templateName, defines), shader)).first;
         }
         return shaderIt->second;
+    }
+
+    osg::ref_ptr<osg::Program> ShaderManager::getProgram(
+        const std::string& templateName, const DefineMap& defines, const osg::Program* programTemplate)
+    {
+        auto vert = getShader(templateName + ".vert", defines);
+        auto frag = getShader(templateName + ".frag", defines);
+
+        if (!vert || !frag)
+            throw std::runtime_error("failed initializing shader: " + templateName);
+
+        return getProgram(vert, frag, programTemplate);
     }
 
     osg::ref_ptr<osg::Program> ShaderManager::getProgram(osg::ref_ptr<osg::Shader> vertexShader,
@@ -636,31 +696,24 @@ namespace Shader
                 program->addShader(linkedShader);
     }
 
-    int ShaderManager::reserveGlobalTextureUnits(Slot slot)
+    int ShaderManager::reserveGlobalTextureUnits(Slot slot, int count)
     {
-        int unit = mReservedTextureUnitsBySlot[static_cast<int>(slot)];
-        if (unit >= 0)
-            return unit;
+        // TODO: Reuse units when count increase forces reallocation
+        // TODO: Warn if trampling on the ~8 units needed by model textures
+        auto unit = mReservedTextureUnitsBySlot[static_cast<int>(slot)];
+        if (unit.index >= 0 && unit.count >= count)
+            return unit.index;
 
-        {
-            // Texture units from `8 - numberOfShadowMaps` to `8` are used for shadows, so we skip them here.
-            // TODO: Maybe instead of fixed texture units use `reserveGlobalTextureUnits` for shadows as well.
-            static const int numberOfShadowMaps = Settings::Manager::getBool("enable shadows", "Shadows")
-                ? std::clamp(Settings::Manager::getInt("number of shadow maps", "Shadows"), 1, 8)
-                : 0;
-            if (getAvailableTextureUnits() >= 8 && getAvailableTextureUnits() - 1 < 8)
-                mReservedTextureUnits = mMaxTextureUnits - (8 - numberOfShadowMaps);
-        }
-
-        if (getAvailableTextureUnits() < 2)
+        if (getAvailableTextureUnits() < count + 1)
             throw std::runtime_error("Can't reserve texture unit; no available units");
-        mReservedTextureUnits++;
+        mReservedTextureUnits += count;
 
-        unit = mMaxTextureUnits - mReservedTextureUnits;
+        unit.index = mMaxTextureUnits - mReservedTextureUnits;
+        unit.count = count;
 
         mReservedTextureUnitsBySlot[static_cast<int>(slot)] = unit;
 
-        return unit;
+        return unit.index;
     }
 
     void ShaderManager::update(osgViewer::Viewer& viewer)
